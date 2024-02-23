@@ -1,8 +1,12 @@
 import os
 import json
+import sys
+main_dir = os.path.dirname(os.path.abspath(__file__))
+for i in range(0, 1):
+    main_dir = os.path.dirname(main_dir)
+os.chdir(main_dir)
+sys.path.append(main_dir)
 import random
-import json
-import os
 import numpy as np
 from pathlib import Path
 from typing import Iterable, Union, Any
@@ -43,9 +47,11 @@ def load_prompt(data_name, prompt_type):
         data_name = "math"
     if prompt_type in ['platypus_fs', 'wizard_zs']:
         prompt_type = "cot"
-    prompt_path = "./prompts/{}/{}.md".format(prompt_type, data_name)
+    prompt_path = os.path.join(main_dir, "prompts", prompt_type, data_name + ".md")
+    #prompt_path = "prompts\{}\{}.md".format(prompt_type, data_name)
     if not os.path.exists(prompt_path):
-        prompt_path = "./prompts/{}.md".format(prompt_type)
+        prompt_path = os.path.join(main_dir, "prompts", data_name + ".md")
+        #prompt_path = "prompts\{}.md".format(prompt_type)
     if os.path.exists(prompt_path):
         with open(prompt_path, 'r', encoding='utf-8') as fp:
             prompt = fp.read().strip() + "\n\n"

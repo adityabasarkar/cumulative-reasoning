@@ -1,3 +1,10 @@
+import os
+import sys
+main_dir = os.path.dirname(os.path.abspath(__file__))
+for i in range(0, 1):
+    main_dir = os.path.dirname(main_dir)
+os.chdir(main_dir)
+sys.path.append(main_dir)
 import re
 from typing import Any, Dict
 

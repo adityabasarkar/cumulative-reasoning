@@ -3,6 +3,15 @@ This logic is largely copied from the Hendrycks' MATH release (math_equivalence)
 - https://github.com/microsoft/ProphetNet/tree/master/CRITIC
 - https://github.com/openai/prm800k
 """
+
+import os
+import sys
+main_dir = os.path.dirname(os.path.abspath(__file__))
+for i in range(0, 1):
+    main_dir = os.path.dirname(main_dir)
+os.chdir(main_dir)
+sys.path.append(main_dir)
+
 import multiprocessing
 from math import isclose
 from typing import Union

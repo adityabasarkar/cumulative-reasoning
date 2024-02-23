@@ -4,7 +4,7 @@ xformers==0.0.21
 tqdm
 sentencepiece
 datasets==2.14.5
-deepspeed==0.11.0
+#deepspeed==0.11.0
 accelerate==0.21.0
 peft
 bitsandbytes
@@ -31,7 +31,7 @@ prompt_toolkit
 rich
 bitarray
 ray==2.6.3
-vllm==0.1.4 # ! Ensure version <= 0.1.4, later versions have unsolved bugs.
+# vllm==0.1.4 # ! Ensure version <= 0.1.4, later versions have unsolved bugs.
 cvxpy
 func-timeout
 timeout-decorator

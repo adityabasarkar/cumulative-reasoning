@@ -3,6 +3,13 @@ This file is based on: https://github.com/microsoft/ProphetNet/tree/master/CRITI
 """
 import random
 import os
+import sys
+main_dir = os.path.dirname(os.path.abspath(__file__))
+for i in range(0, 1):
+    main_dir = os.path.dirname(main_dir)
+os.chdir(main_dir)
+print(main_dir)
+sys.path.append(main_dir)
 import argparse
 import time
 import openai
@@ -46,7 +53,8 @@ def retry_with_exponential_backoff(
     max_delay: float = 8,
     jitter: bool = True,
     max_retries: int = 20,
-    errors: tuple = (openai.error.RateLimitError, openai.error.APIConnectionError, openai.error.APIError, openai.error.ServiceUnavailableError),
+    errors: tuple = (openai.error.RateLimitError, openai.error.APIConnectionError, openai.error.APIError, openai.error.APIConnectionError)
+    #errors: tuple = (openai.RateLimitError, openai.APIConnectionError, openai.APIError, openai.APIConnectionError),
 ):
     """Retry a function with exponential backoff."""
 
@@ -93,7 +101,7 @@ def completion_with_backoff(**kwargs):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_name", default="gsm8k", type=str)
+    parser.add_argument("--data_name", default="math", type=str)
     parser.add_argument("--model_name_or_path", default="gpt-4", type=str)
     parser.add_argument("--prompt_type", default="pal", type=str)
     parser.add_argument("--split", default="test", type=str)
@@ -118,6 +126,7 @@ def parse_args():
         args.max_func_call = max(args.max_func_call, 10)
     return args
 
+# I'm not running this from a linux machine, so vllm is not going to work. Disable this stuff for just a normal LLM
 def main(args):
     initial_system_prompt = "As one of the most distinguished mathematicians, logicians, programmers, and AI scientists, you possess an unparalleled mastery over Arithmetic, Combinatorics, Number Theory, Probability Theory, Algebra, Analysis, and Geometry. You are not only intelligent and rational but also prudent and cautious. You are willing to write and execute Python code. Let's approach each problem step by step, take a deep breath, do not save your words, articulating our thoughts in detail, as detailed as possible."
     if args.prompt_type in ["cot"]:
@@ -183,14 +192,15 @@ def main(args):
     else:
         executor = PythonExecutor(get_answer_from_stdout=True)
 
+    # We are not in the environment to load local/custom LLMs. 
     # load model
-    if len(examples) > 0:
-        available_gpus = os.environ['CUDA_VISIBLE_DEVICES'].split(',')
-        # if the args.model_name_or_path is do not contain "gpt-3.5" and "gpt-4", we use the local LLM
-        print ("args.model_name_or_path: ", args.model_name_or_path)
-        if "gpt-3.5" not in args.model_name_or_path and "gpt-4" not in args.model_name_or_path:
-            from vllm import LLM, SamplingParams
-            llm = LLM(model=args.model_name_or_path, tensor_parallel_size=len(available_gpus), trust_remote_code=True, max_num_batched_tokens = 16000)
+    # if len(examples) > 0:
+    #     available_gpus = os.environ['CUDA_VISIBLE_DEVICES'].split(',')
+    #     # if the args.model_name_or_path is do not contain "gpt-3.5" and "gpt-4", we use the local LLM
+    #     print ("args.model_name_or_path: ", args.model_name_or_path)
+    #     if "gpt-3.5" not in args.model_name_or_path and "gpt-4" not in args.model_name_or_path:
+    #         from vllm import LLM, SamplingParams
+    #         llm = LLM(model=args.model_name_or_path, tensor_parallel_size=len(available_gpus), trust_remote_code=True, max_num_batched_tokens = 16000)
     samples = []
     for example in tqdm(examples, total=len(examples)):
         idx = example['idx']
@@ -249,16 +259,16 @@ def main(args):
         if args.prompt_type in ["cr"]: ans_split = "## Problem:"
 
         # if the args.model_name_or_path is do not contain "gpt-3.5" and do not contain "gpt-4", we use the local LLM
-        if "gpt-3.5" not in args.model_name_or_path and "gpt-4" not in args.model_name_or_path:
-            outputs = llm.generate(prompts, SamplingParams(
-                        temperature=args.temperature,
-                        top_p=args.top_p,
-                        max_tokens=1024,
-                        n=1,
-                        stop=stop_tokens,
-            ))
-            outputs = sorted(outputs, key=lambda x: int(x.request_id)) # sort outputs by request_id
-            outputs = [output.outputs[0].text for output in outputs]
+        # if "gpt-3.5" not in args.model_name_or_path and "gpt-4" not in args.model_name_or_path:
+        #     outputs = llm.generate(prompts, SamplingParams(
+        #                 temperature=args.temperature,
+        #                 top_p=args.top_p,
+        #                 max_tokens=1024,
+        #                 n=1,
+        #                 stop=stop_tokens,
+        #     ))
+        #     outputs = sorted(outputs, key=lambda x: int(x.request_id)) # sort outputs by request_id
+        #     outputs = [output.outputs[0].text for output in outputs]
         else: 
             for prompt in tqdm(prompts, desc="Requesting OpenAI API"):
                 if args.verbose: print("<openai request>")
