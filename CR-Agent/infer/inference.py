@@ -4,15 +4,22 @@ This file is based on: https://github.com/microsoft/ProphetNet/tree/master/CRITI
 import random
 import os
 import sys
+from dotenv import load_dotenv
+
+# environment stuff
 main_dir = os.path.dirname(os.path.abspath(__file__))
 for i in range(0, 1):
     main_dir = os.path.dirname(main_dir)
 os.chdir(main_dir)
 print(main_dir)
 sys.path.append(main_dir)
+load_dotenv()
+apikey = os.getenv('OPENAI_API_KEY')
+
 import argparse
 import time
 import openai
+openai.api_key = apikey
 # from vllm import LLM, SamplingParams
 from datetime import datetime
 from tqdm import tqdm
@@ -53,7 +60,7 @@ def retry_with_exponential_backoff(
     max_delay: float = 8,
     jitter: bool = True,
     max_retries: int = 20,
-    errors: tuple = (openai.error.RateLimitError, openai.error.APIConnectionError, openai.error.APIError, openai.error.APIConnectionError)
+    errors: tuple = (openai.RateLimitError, openai.APIConnectionError, openai.APIError)
     #errors: tuple = (openai.RateLimitError, openai.APIConnectionError, openai.APIError, openai.APIConnectionError),
 ):
     """Retry a function with exponential backoff."""
@@ -102,8 +109,8 @@ def completion_with_backoff(**kwargs):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_name", default="math", type=str)
-    parser.add_argument("--model_name_or_path", default="gpt-4", type=str)
-    parser.add_argument("--prompt_type", default="pal", type=str)
+    parser.add_argument("--model_name_or_path", default="gpt-3.5-turbo-16k", type=str)
+    parser.add_argument("--prompt_type", default="cr", type=str)
     parser.add_argument("--split", default="test", type=str)
     parser.add_argument("--num_test_sample", default=-1, type=int) # -1 for full data
     parser.add_argument("--seed", default=0, type=int)
@@ -159,15 +166,15 @@ def main(args):
     file_prompt_type = args.prompt_type.replace("program_only", "tora")
     out_file_prefix = f'{args.split}_{file_prompt_type}_{args.num_test_sample}_seed{args.seed}_t{args.temperature}'
     commit_id = get_git_commit_id()
-    out_file = f'outputs/{model_name}/{args.data_name}/{out_file_prefix}_s{args.start}_e{args.end}_{dt_string}_{commit_id}.jsonl'
-    os.makedirs(f'outputs/{model_name}/{args.data_name}', exist_ok=True)
-
-    # all files in the output folder
-    processed_files = [f for f in os.listdir(f"outputs/{model_name}/{args.data_name}/") if f.endswith(".jsonl") and f.startswith(out_file_prefix)]    
+    out_file = os.path.join(main_dir, 'outputs', f'{model_name}', f'{args.data_name}', f'{out_file_prefix}_s{args.start}_e{args.end}_{dt_string}_{commit_id}.jsonl')
+    os.makedirs(os.path.join('outputs', f'{model_name}', f'{args.data_name}'), exist_ok=True)
+    
+    # all files in the output folder 
+    processed_files = [f for f in os.listdir( os.path.join('outputs', f'{model_name}', f'{args.data_name}') ) if f.endswith(".jsonl") and f.startswith(out_file_prefix)]    
     processed_samples = []
     for f in processed_files:
         if args.prompt_type not in ["cr"] and (args.model_name_or_path in ["gpt-4", "gpt-4-0314", "gpt-4-0613", "gpt-4-1106-preview"] or "gpt-4" in args.model_name_or_path):
-            processed_samples.extend(list(load_jsonl(f"outputs/{model_name}/{args.data_name}/{f}")))
+            processed_samples.extend(list(load_jsonl(os.path.join('outputs', f'{model_name}', f'{args.data_name}', f'{f}'))))
             print("f:", f)
         else:
             continue
@@ -256,19 +263,21 @@ def main(args):
     
         # Set the split token based on prompt type
         ans_split = "<|assistant|>" if args.use_train_prompt_format else "Question:"
-        if args.prompt_type in ["cr"]: ans_split = "## Problem:"
+        if args.prompt_type in ["cr"]: 
+            ans_split = "## Problem:"
 
         # if the args.model_name_or_path is do not contain "gpt-3.5" and do not contain "gpt-4", we use the local LLM
-        # if "gpt-3.5" not in args.model_name_or_path and "gpt-4" not in args.model_name_or_path:
-        #     outputs = llm.generate(prompts, SamplingParams(
-        #                 temperature=args.temperature,
-        #                 top_p=args.top_p,
-        #                 max_tokens=1024,
-        #                 n=1,
-        #                 stop=stop_tokens,
-        #     ))
-        #     outputs = sorted(outputs, key=lambda x: int(x.request_id)) # sort outputs by request_id
-        #     outputs = [output.outputs[0].text for output in outputs]
+        if "gpt-3.5" not in args.model_name_or_path and "gpt-4" not in args.model_name_or_path:
+            # outputs = llm.generate(prompts, SamplingParams(
+            #             temperature=args.temperature,
+            #             top_p=args.top_p,
+            #             max_tokens=1024,
+            #             n=1,
+            #             stop=stop_tokens,
+            # ))
+            # outputs = sorted(outputs, key=lambda x: int(x.request_id)) # sort outputs by request_id
+            # outputs = [output.outputs[0].text for output in outputs]
+            assert "gpt-3.5" in args.model_name_or_path or "gpt-4" in args.model_name_or_path
         else: 
             for prompt in tqdm(prompts, desc="Requesting OpenAI API"):
                 if args.verbose: print("<openai request>")
@@ -280,7 +289,8 @@ def main(args):
                     max_tokens=2048,
                     temperature=args.temperature,
                     top_p=args.top_p,
-                    stop=stop_tokens
+                    stop=stop_tokens,
+                    base_url="https://drchat.xyz"
                 )
     
                 # Append the resulting output string to the outputs list
